@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# Predictive_Maintenance_System
-=======
 Aircraft Engine Failure Imminence Classification (CNN-LSTM)
 
 - Project Overview
@@ -147,4 +144,3 @@ Adham Mahgoub
 Mechanical Engineer | Machine Learning Engineer
 
 ⸻
->>>>>>> 4bfd42c (Next->ModelTuning)
