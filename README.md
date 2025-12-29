@@ -10,14 +10,13 @@ The system is built using the NASA CMAPSS Turbofan Engine Degradation Dataset an
 
 - Problem Statement
 
-Given historical sensor readings from aircraft engines operating under varying conditions, classify the current health state of an engine into one of three categories:
+Given historical sensor readings from aircraft engines operating under varying conditions, classify the current health state of an engine into one of two categories:
 
 Class	Description	Risk Level
-0	Healthy	Low
-1	Degrading	Medium
-2	Failure Imminent	High ⚠️
+0	Normal	Low
+1	Failure Imminent	High ⚠️
 
-This formulation prioritizes early fault detection and safety-critical decision making.
+This binary classification formulation prioritizes early fault detection and safety-critical decision making, using a failure threshold of 30 remaining cycles.
 
 ⸻
 - Dataset Description
@@ -43,8 +42,8 @@ This notebook currently focuses on FD001 as a baseline.
 Each row represents one operational cycle of an engine and contains 26 columns:
 	1.	Engine ID
 	2.	Cycle number
-3–5. Operational settings
-6–26. Sensor measurements
+	3–5.	Operational settings (included in model)
+	6–26.	Sensor measurements (21 sensors)
 
 ⸻
 
@@ -55,8 +54,8 @@ The following preprocessing and EDA steps were completed:
 	•	Engine-wise lifecycle visualization
 	•	Correlation analysis
 	•	Identified and removed globally constant sensors:
-	•	sensor_5, sensor_16, sensor_18, sensor_19
-	•	Retained 16 informative sensors for modeling
+	•	sensor_1, sensor_5, sensor_6, sensor_10, sensor_16, sensor_18, sensor_19
+	•	Retained 14 informative sensors plus 3 operational settings (17 features total) for modeling
 
 Flat sensor signals were only removed if globally constant, as sensors that activate near failure are informative.
 
@@ -64,70 +63,128 @@ Flat sensor signals were only removed if globally constant, as sensors that acti
 
 - Label Engineering (Classification)
 
-The original RUL values were converted into discrete health classes:
+The original RUL values were converted into binary health classes:
 
-def rul_to_class(rul):
-    if rul > 50:
-        return 0  # Healthy
-    elif rul > 20:
-        return 1  # Degrading
-    else:
-        return 2  # Failure Imminent
+def convert_to_binary(df, failure_threshold=30):
+    df['label'] = (df['RUL'] <= failure_threshold).astype(int)
+    return df
 
-This mapping is used consistently across training, testing, and inference.
+Class 0: Normal (RUL > 30 cycles)
+Class 1: Failure Imminent (RUL ≤ 30 cycles)
+
+This binary classification mapping is used consistently across training, testing, and inference.
 
 ⸻
 
 - Time-Series Windowing
 
 To enable deep learning on temporal data, a sliding window approach was used:
-	•	Window size: 50 cycles
+	•	Window size: 20 cycles
 	•	Step size: 1 cycle
 	•	One window → one classification label
 
 Training Data
 	•	Sliding windows generated across full engine lifecycles
-	•	Resulting shape:
-
-X_train: (15631, 50, 16)
-y_train: (15631,)
+	•	Features include 3 operational settings and 14 sensor measurements (17 features per timestep)
+	•	Resulting shape: (N, 20, 17) where N is the number of windows
 
 Test Data
-	•	Only the last 50 cycles per engine are used
+	•	Only the last 20 cycles per engine are used
 	•	One prediction per engine
-	•	Engines with fewer than 50 cycles are left-padded
+	•	Engines with fewer than 20 cycles are excluded
 
 This follows the official CMAPSS evaluation protocol.
 
 ⸻
 
 - Important Design Decisions
-	•	Classification chosen over regression for robustness and actionability
-	•	Failure-imminent class (Class 2) treated as highest-risk
-	•	Padding applied only after normalization
+	•	Binary classification chosen over regression for robustness and actionability
+	•	Failure-imminent class (Class 1) treated as highest-risk
+	•	MinMaxScaler applied to sensor columns only; operational settings kept unscaled
 	•	Test set kept untouched for final evaluation
+	•	Batch size: 32, learning rate: 0.0001, dropout: 0.3
 
 ⸻
 
-- Model Architecture (Planned)
+- Model Architecture
 
-The model will use a CNN-LSTM hybrid architecture:
-	•	1D CNN: Local temporal feature extraction
-	•	LSTM: Long-term degradation modeling
-	•	Fully connected layers + Softmax: Health state classification
+The implemented model uses a CNN-LSTM hybrid architecture:
+	•	1D CNN: Two Conv1d layers (64 channels, kernel size 3) for local temporal feature extraction
+	•	LSTM: Single-layer LSTM (128 hidden units) for long-term degradation modeling
+	•	Fully connected layers: 128 → 64 → 2 classes with ReLU activations and dropout
+	•	Softmax: Health state classification (binary)
 
-Loss function:
-	•	CrossEntropyLoss
+Configuration:
+	•	Input size: 17 features (3 operational settings + 14 sensors)
+	•	CNN channels: 64
+	•	LSTM hidden size: 128
+	•	LSTM layers: 1
+	•	Dropout rates: 0.3 (CNN, LSTM, FC)
+	•	Loss function: CrossEntropyLoss
+	•	Optimizer: Adam (learning rate: 0.0001)
 
 ⸻
 
-- Next Steps
-	•	Feature normalization
+- Usage
+
+Training
+
+To train the model:
+
+python train.py
+
+This will load the training data, preprocess it, train the CNN-LSTM model, and save the trained model and scaler to disk.
+
+API Server
+
+To start the FastAPI prediction server:
+
+python predict.py
+
+The API will be available at http://localhost:8080 with interactive documentation at http://localhost:8080/docs.
+
+API Endpoint
+
+POST /predict
+
+Request body (JSON):
+	•	features: List of 340 floats (20 timesteps × 17 features)
+	•	Feature order: [op_set_1, op_set_2, op_set_3, sensor_2, sensor_3, ..., sensor_21] for each timestep
+
+Response:
+	•	predicted_class: 0 (Normal) or 1 (Failure Imminent)
+	•	confidence: Prediction confidence score (0–1)
+
+Example Usage
+
+See example_predict.py for complete examples including:
+	•	Loading data from test files
+	•	Making batch predictions
+	•	Simulating engine degradation
+	•	Direct model usage (without API)
+
+⸻
+
+- Implementation Status
+
+Completed:
+	•	Feature normalization (MinMaxScaler on sensor columns)
 	•	PyTorch Dataset & DataLoader implementation
-	•	CNN-LSTM model training
-	•	Evaluation (Accuracy, F1-score, Confusion Matrix)
+	•	CNN-LSTM model training and evaluation
+	•	Model serialization (predictive_maintenance_model.pth, scaler.pkl)
+	•	FastAPI REST API deployment (predict.py)
+	•	Example prediction scripts and test suite
+
+Files:
+	•	train.py: Model training script
+	•	predict.py: FastAPI server for predictions
+	•	example_predict.py: Usage examples and demonstrations
+	•	test_predict.py: Unit tests for API endpoints
+
+Future Enhancements:
 	•	Cross-dataset generalization (FD002–FD004)
-	•	Deployment with FastAPI + Docker
+	•	Docker containerization
+	•	Model performance metrics dashboard
 
 ⸻
 
