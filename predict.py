@@ -60,6 +60,14 @@ print("✅ Model & scaler loaded successfully")
 # ======================================================
 app = FastAPI(title="Predictive Maintenance API")
 
+@app.get("/health")
+def health():
+    """
+    Health check endpoint for Kubernetes probes.
+    Returns 200 OK if the service is ready to serve requests.
+    """
+    return {"status": "healthy", "service": "predictive-maintenance-api"}
+
 @app.post("/predict")
 def predict(data: EngineData):
     try:

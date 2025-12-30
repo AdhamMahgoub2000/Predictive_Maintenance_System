@@ -125,6 +125,37 @@ Configuration:
 
 ⸻
 
+- Quick Start
+
+```bash
+# Train the model
+python train.py
+
+# Start the API server
+python predict.py
+
+# Test the health endpoint
+curl http://localhost:8080/health
+
+# Make a prediction (see example_predict.py for details)
+curl -X POST http://localhost:8080/predict \
+  -H "Content-Type: application/json" \
+  -d @request_example.json
+```
+
+For Docker deployment:
+```bash
+docker build -t predictive-maintenance-engine .
+docker run -p 8080:8080 predictive-maintenance-engine
+```
+
+For Kubernetes deployment:
+```bash
+kubectl apply -k k8s/
+```
+
+⸻
+
 - Usage
 
 Training
@@ -143,9 +174,19 @@ python predict.py
 
 The API will be available at http://localhost:8080 with interactive documentation at http://localhost:8080/docs.
 
-API Endpoint
+API Endpoints
+
+GET /health
+
+Health check endpoint for monitoring and Kubernetes probes.
+
+Response:
+	•	status: "healthy"
+	•	service: "predictive-maintenance-api"
 
 POST /predict
+
+Prediction endpoint for engine health classification.
 
 Request body (JSON):
 	•	features: List of 340 floats (20 timesteps × 17 features)
@@ -165,6 +206,140 @@ See example_predict.py for complete examples including:
 
 ⸻
 
+- Docker Containerization
+
+The application is fully containerized using Docker, making it easy to deploy and run in any environment.
+
+Building the Docker Image
+
+To build the Docker image:
+
+docker build -t predictive-maintenance-engine .
+
+The Dockerfile uses Python 3.13 slim as the base image, installs dependencies using uv, and sets up the FastAPI server for predictions.
+
+Running the Container
+
+To run the containerized FastAPI server:
+
+docker run -p 8080:8080 predictive-maintenance-engine
+
+This will:
+	•	Start the FastAPI server on port 8080
+	•	Make the API available at http://localhost:8080
+	•	Serve the interactive API documentation at http://localhost:8080/docs
+	•	Provide health check endpoint at http://localhost:8080/health
+
+The container includes:
+	•	All Python dependencies (managed by uv)
+	•	The trained model (predictive_maintenance_model.pth)
+	•	The feature scaler (scaler.pkl)
+	•	The FastAPI prediction server
+
+Note: The Docker image is optimized for inference. Training data and notebooks are excluded via .dockerignore to keep the image size minimal.
+
+⸻
+
+- Kubernetes Deployment
+
+The application can be deployed to Kubernetes for production use with high availability, scalability, and automatic recovery.
+
+Prerequisites
+
+	•	Kubernetes cluster (v1.20+)
+	•	kubectl configured to access your cluster
+	•	Docker image built and pushed to a container registry (or available locally)
+
+Building and Pushing the Docker Image
+
+First, build and tag the Docker image:
+
+docker build -t predictive-maintenance-engine:latest .
+
+If using a container registry (e.g., Docker Hub, GCR, ECR), tag and push the image:
+
+docker tag predictive-maintenance-engine:latest <registry>/predictive-maintenance-engine:latest
+docker push <registry>/predictive-maintenance-engine:latest
+
+Update the image reference in k8s/deployment.yaml if using a remote registry.
+
+Deploying to Kubernetes
+
+Option 1: Using kubectl directly
+
+Deploy all resources:
+
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/ingress.yaml  # Optional, if you have an ingress controller
+
+Option 2: Using Kustomize
+
+Deploy using kustomize (recommended):
+
+kubectl apply -k k8s/
+
+This will create all resources in the predictive-maintenance namespace.
+
+Verifying the Deployment
+
+Check deployment status:
+
+kubectl get deployments -n predictive-maintenance
+kubectl get pods -n predictive-maintenance
+kubectl get services -n predictive-maintenance
+
+View logs:
+
+kubectl logs -f deployment/predictive-maintenance-api -n predictive-maintenance
+
+Accessing the API
+
+ClusterIP Service (internal access):
+
+kubectl port-forward -n predictive-maintenance service/predictive-maintenance-api 8080:80
+
+Then access the API at http://localhost:8080
+
+Ingress (external access):
+
+If you've configured the ingress, update your /etc/hosts or DNS to point predictive-maintenance.local to your ingress controller's IP, then access:
+
+http://predictive-maintenance.local/docs
+
+Scaling
+
+Scale the deployment:
+
+kubectl scale deployment predictive-maintenance-api -n predictive-maintenance --replicas=3
+
+Or update the replicas field in k8s/deployment.yaml and reapply.
+
+Configuration
+
+The deployment includes:
+
+	•	2 replicas for high availability
+	•	Resource limits: 1Gi memory, 500m CPU
+	•	Liveness and readiness probes using `/health` endpoint
+	•	Automatic restart on failure
+	•	Health check intervals: 10s (liveness), 5s (readiness)
+
+To customize, edit k8s/deployment.yaml before deploying.
+
+Cleaning Up
+
+Remove all resources:
+
+kubectl delete -k k8s/
+
+Or delete individually:
+
+kubectl delete -f k8s/
+
+⸻
+
 - Implementation Status
 
 Completed:
@@ -173,18 +348,32 @@ Completed:
 	•	CNN-LSTM model training and evaluation
 	•	Model serialization (predictive_maintenance_model.pth, scaler.pkl)
 	•	FastAPI REST API deployment (predict.py)
+	•	Health check endpoint (/health) for monitoring and Kubernetes probes
 	•	Example prediction scripts and test suite
+	•	Docker containerization for easy deployment
+	•	Kubernetes deployment manifests for production with health checks
 
 Files:
 	•	train.py: Model training script
 	•	predict.py: FastAPI server for predictions
 	•	example_predict.py: Usage examples and demonstrations
-	•	test_predict.py: Unit tests for API endpoints
+	•	Dockerfile: Container configuration for deployment
+	•	k8s/: Kubernetes deployment manifests (deployment, service, ingress, namespace)
+
+Project Status: ✅ Complete
+
+The project is production-ready with:
+	•	Trained CNN-LSTM model for engine failure prediction
+	•	RESTful API with health monitoring
+	•	Docker containerization
+	•	Kubernetes deployment configuration
+	•	Comprehensive documentation and examples
 
 Future Enhancements:
 	•	Cross-dataset generalization (FD002–FD004)
-	•	Docker containerization
 	•	Model performance metrics dashboard
+	•	Real-time monitoring and alerting integration
+	•	Model versioning and A/B testing support
 
 ⸻
 
