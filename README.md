@@ -370,7 +370,6 @@ Files:
 	•	Dockerfile: Container configuration for deployment
 	•	k8s/: Kubernetes deployment manifests (deployment, service, ingress, namespace)
 
-Project Status: ✅ Complete
 
 The project is production-ready with:
 	•	Trained CNN-LSTM model for engine failure prediction
