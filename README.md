@@ -153,7 +153,11 @@ For Kubernetes deployment:
 ```bash
 kubectl apply -k k8s/
 ```
+⸻
 
+- Screanshots
+Screenshot 2025-12-30 at 2.05.15 PM.png
+Screenshot 2025-12-30 at 2.05.41 PM.png
 ⸻
 
 - Usage
