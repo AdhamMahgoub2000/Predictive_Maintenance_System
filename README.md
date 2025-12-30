@@ -1,4 +1,4 @@
-Aircraft Engine Failure Imminence Classification (CNN-LSTM)
+Predictive Maintenance for Aircraft Engines (CNN-LSTM)
 
 - Project Overview
 
@@ -6,7 +6,10 @@ This project implements a deep learning–based health state classification syst
 
 The system is built using the NASA CMAPSS Turbofan Engine Degradation Dataset and follows industry-standard practices in data preprocessing, windowed time-series modeling, and deep learning architecture design.
 
+![Project Pipeline](pipeline.png)
+
 ⸻
+
 
 - Problem Statement
 
@@ -156,8 +159,11 @@ kubectl apply -k k8s/
 ⸻
 
 - Screanshots
-Screenshot 2025-12-30 at 2.05.15 PM.png
-Screenshot 2025-12-30 at 2.05.41 PM.png
+
+![Project Architecture](localhost.png)
+![Project Architecture](localhost-predict.png)
+
+
 ⸻
 
 - Usage
